@@ -6,7 +6,6 @@ import telebot
 
 # Utility libraries
 import datetime
-import sys
 import os
 from dotenv import load_dotenv
 
@@ -17,18 +16,13 @@ from time import sleep
 
 # LangChain
 from langchain.chains import RetrievalQA
-from langchain.agents import create_csv_agent
 from langchain.document_loaders.csv_loader import CSVLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.memory import VectorStoreRetrieverMemory
 from langchain.memory import ConversationBufferMemory
 from langchain import PromptTemplate
-from langchain.llms import OpenAI
 from langchain.chat_models import ChatOpenAI
-from langchain.vectorstores import Chroma, FAISS
+from langchain.vectorstores import FAISS
 from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.experimental import BabyAGI
-
 
 template = """
 You are a personal assistant capable of going through your owner's email content and summarizing, creating to-do items based on that.
@@ -121,7 +115,6 @@ with open("data.csv", "w", newline="") as csvFile:
 # Email Variables:
 # email_from, subject, body.decode('utf-8)
 
-
 # Langchain Section Below
 loader = CSVLoader(file_path="./data.csv")
 data = loader.load()
@@ -179,6 +172,5 @@ def message_user():
 if __name__ in "__main__":
     schedule.every().day.at("08:00").do(message_user)
     Thread(target=schedule_checker).start()
-
 
 bot.infinity_polling()
