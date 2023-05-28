@@ -1,6 +1,8 @@
 .env
 .vscode
 data.csv
+replit.nix
+.replit
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
