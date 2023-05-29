@@ -49,7 +49,6 @@ Clear the to-do items or add items to the list if Ritik asks you to do so. Make 
 
 Human: {question}
 """
-owner = os.getenv("OWNER")
 prompt = PromptTemplate(template=template, input_variables=["context", "question"])
 llm = ChatOpenAI(temperature=0)
 
