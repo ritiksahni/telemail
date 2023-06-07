@@ -2,7 +2,9 @@
 import imaplib
 import email
 import csv
+import faiss
 import telebot
+import pickle
 
 # Utility libraries
 import datetime
@@ -16,7 +18,7 @@ from time import sleep
 
 # LangChain
 from langchain.chains import RetrievalQA
-from langchain.document_loaders.csv_loader import CSVLoader
+
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.memory import ConversationBufferMemory
 from langchain import PromptTemplate
@@ -24,28 +26,31 @@ from langchain.chat_models import ChatOpenAI
 from langchain.vectorstores import FAISS
 from langchain.embeddings.openai import OpenAIEmbeddings
 
+from ingest import email_ingest
+
 template = """
-You are a personal assistant capable of going through your owner's email content and summarizing, creating to-do items based on that.
+Task: Understand the content & context of my emails and create a list of actionable items from the email content. Keep in mind that you're a chat-bot, respond to me as if you're chatting with me on WhatsApp/Telegram.
+Style: Like a regular human personal assistant with access to my emails
+Tone: Humane
+Audience: 20-year old
+Length: 2 paragraphs
+Note: A user may be having questions about certain emails. Respond to them appropriately without diverting the topic of the email or the conversation.
 
-Your owner's name is Ritik Sahni. Address him by his name.
+Be smart enough to separate newsletter content from more important emails.
 
-Ritik Sahni could also ask for clarification so make sure to respond to those questions.
+Respond with only the format below:
 
-Do not try to do anything else other than summarizing, and answering questions. You're NOT capable of doing anything else such as schedule meetings.
+Hey, [greeting message of your choice].
 
-When you initiate a conversation, you must always reply with the main substance i.e. email summary, actionable items list.
+There are [NUMBER OF NEW EMAILS] new emails in your inbox. Here is a list of actionable items for you:
 
-You could use the following format:
-Actionable Emails:
-[Sender Name] - [Email Subject] - [Email Summary]
+[ACTIONABLE ITEM LIST ONLY BASED ON THE CONTENT OF THE EMAILS]
 
-Current to-do:
-- [to-do item name (for e.g. write back to Rohan at 3pm accepting offer for lunch)]
+Have a good one! [ADD A QUOTE TO MOTIVATE THE USER FOR HIS DAY]
+---
 
-Make sure to include important date and time if any email content has one.
 
-Clear the to-do items or add items to the list if Ritik asks you to do so. Make sure you don't make mistakes regarding the status of the to-do list.
-{context}
+Context: {context}
 
 Human: {question}
 """
@@ -56,95 +61,28 @@ load_dotenv()
 token = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(token)
 
-# Email Handler Section Below.
-mail = imaplib.IMAP4_SSL("imap.gmail.com")
-mail.login(os.getenv("EMAIL_ADDRESS"), os.getenv("EMAIL_PASSWORD"))
-mail.list()
-mail.select("inbox")
+index = faiss.read_index("docs.index")
 
-# Fetch email UIDs
-status, data = mail.uid("search", None, "UNSEEN")  # ALL/UNSEEN
-email_uids = data[0].split()
+with open("faiss_store.pkl", "rb") as f:
+    store = pickle.load(f)
 
-csv_data = []
-
-# Process each email
-for uid in email_uids:
-    result, email_data = mail.uid("fetch", uid, "(RFC822)")
-    raw_email = email_data[0][1]
-    try:
-        raw_email_string = raw_email.decode("utf-8")
-    except UnicodeDecodeError:
-        raw_email_string = raw_email.decode("utf-8", errors="replace")
-    email_message = email.message_from_string(raw_email_string)
-
-    # Header Details
-    date_tuple = email.utils.parsedate_tz(email_message["Date"])
-    if date_tuple:
-        local_date = datetime.datetime.fromtimestamp(email.utils.mktime_tz(date_tuple))
-        local_message_date = "%s" % (str(local_date.strftime("%a, %d %b %Y %H:%M:%S")))
-    email_from = str(
-        email.header.make_header(email.header.decode_header(email_message["From"]))
-    )
-    email_to = str(
-        email.header.make_header(email.header.decode_header(email_message["To"]))
-    )
-    subject = str(
-        email.header.make_header(email.header.decode_header(email_message["Subject"]))
-    )
-
-    # Body details
-    for part in email_message.walk():
-        if part.get_content_type() == "text/plain":
-            body = part.get_payload(decode=True)
-            try:
-                body_text = body.decode("utf-8")
-            except UnicodeDecodeError:
-                body_text = body.decode("utf-8", errors="replace")
-            data = {"From": email_from, "Subject": subject, "Body": body_text}
-            csv_data.append(data)
-        else:
-            continue
-
-# Write data to CSV file
-with open("data.csv", "w", newline="") as csvFile:
-    writer = csv.DictWriter(csvFile, fieldnames=["From", "Subject", "Body"])
-    writer.writeheader()
-    writer.writerows(csv_data)
-# Email Variables:
-# email_from, subject, body.decode('utf-8)
-
-# Langchain Section Below
-loader = CSVLoader(file_path="./data.csv")
-data = loader.load()
-
-text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1000,
-    chunk_overlap=100,
-    separators=["\n\n", "\n", ".", ";", ",", " ", ""],
-)
-texts = text_splitter.split_documents(data)
-
-embeddings = OpenAIEmbeddings(openai_api_key=os.getenv("OPENAI_API_KEY"))
-# instance = Chroma.from_documents(texts, embeddings, persist_directory="./data")
-instance = FAISS.from_documents(texts, embeddings)
-
-retriever = instance.as_retriever()
+store.index = index
 memory = ConversationBufferMemory()
 
 chain_type_kwargs = {"prompt": prompt}
 qa = RetrievalQA.from_chain_type(
     llm=llm,
     chain_type="stuff",
-    retriever=retriever,
+    retriever=store.as_retriever(),
     memory=memory,
     chain_type_kwargs=chain_type_kwargs,
 )
 
 
-@bot.message_handler(commands=["greet", "start"])
+@bot.message_handler(commands=["refresh", "start"])
 def start(message):
-    msg = """Hello, Ritik. Let's get working."""
+    msg = """Hello, Ritik. Let's get working. I have access to your emails"""
+    email_ingest()
     bot.reply_to(message, msg)
 
 
@@ -164,12 +102,8 @@ def schedule_checker():
         sleep(1)
 
 
-def message_user():
-    return bot.send_message(os.getenv("USER_ID"), qa.run("Hey"))
-
-
 if __name__ in "__main__":
-    schedule.every().day.at("08:00").do(message_user)
+    schedule.every().day.at("08:00").do(email_ingest)
     Thread(target=schedule_checker).start()
 
 bot.infinity_polling()
