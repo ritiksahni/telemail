@@ -1,13 +1,8 @@
-# For emails and telegram
-import imaplib
-import email
-import csv
 import faiss
 import telebot
 import pickle
 
 # Utility libraries
-import datetime
 import os
 from dotenv import load_dotenv
 
@@ -19,12 +14,10 @@ from time import sleep
 # LangChain
 from langchain.chains import RetrievalQA
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.memory import ConversationBufferMemory
 from langchain import PromptTemplate
 from langchain.chat_models import ChatOpenAI
-from langchain.vectorstores import FAISS
-from langchain.embeddings.openai import OpenAIEmbeddings
+
 
 from ingest import email_ingest
 
