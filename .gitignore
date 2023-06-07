@@ -3,6 +3,8 @@
 data.csv
 replit.nix
 .replit
+docs.index
+faiss_store.pkl
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
