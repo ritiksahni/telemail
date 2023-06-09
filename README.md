@@ -27,6 +27,6 @@ USER_ID="<TELEGRAM-USER-ID>"
 Your regular Google password won't work with Telemail. You need to use an app password.
 
 Instructions on creating an app password:
-![https://support.google.com/mail/answer/185833?hl=en](https://support.google.com/mail/answer/185833?hl=en)
+[https://support.google.com/mail/answer/185833?hl=en](https://support.google.com/mail/answer/185833?hl=en)
 
 ---
