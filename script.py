@@ -54,29 +54,38 @@ load_dotenv()
 token = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(token)
 
-index = faiss.read_index("docs.index")
+try:
+    index = faiss.read_index("docs.index")
 
-with open("faiss_store.pkl", "rb") as f:
-    store = pickle.load(f)
+    with open("faiss_store.pkl", "rb") as f:
+        store = pickle.load(f)
 
-store.index = index
-memory = ConversationBufferMemory()
-
-chain_type_kwargs = {"prompt": prompt}
-qa = RetrievalQA.from_chain_type(
-    llm=llm,
-    chain_type="stuff",
-    retriever=store.as_retriever(),
-    memory=memory,
-    chain_type_kwargs=chain_type_kwargs,
-)
+    store.index = index
+    memory = ConversationBufferMemory()
+    chain_type_kwargs = {"prompt": prompt}
+    qa = RetrievalQA.from_chain_type(
+        llm=llm,
+        chain_type="stuff",
+        retriever=store.as_retriever(),
+        memory=memory,
+        chain_type_kwargs=chain_type_kwargs,
+    )
+except:
+    ingest_response = email_ingest()
 
 
 @bot.message_handler(commands=["refresh", "start"])
 def start(message):
-    msg = """Hello, Ritik. Let's get working. I have access to your emails"""
-    email_ingest()
-    bot.reply_to(message, msg)
+    msg_if_emails_available = (
+        "Hello, Ritik. Let's get working. I have access to your emails"
+    )
+    msg_if_no_unread_emails_found = "No new unread emails found."
+    ingest_response = email_ingest()
+    if ingest_response != True:
+        bot.reply_to(message, msg_if_no_unread_emails_found)
+        print(msg_if_no_unread_emails_found)
+    else:
+        bot.reply_to(message, msg_if_emails_available)
 
 
 @bot.message_handler(func=lambda m: True)

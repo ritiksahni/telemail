@@ -86,6 +86,9 @@ def email_ingest():
     loader = CSVLoader(file_path="./data.csv")
     data = loader.load()
 
+    if not data:
+        return ValueError("No new emails.")
+
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
         chunk_overlap=100,
@@ -94,9 +97,17 @@ def email_ingest():
     texts = text_splitter.split_documents(data)
 
     embeddings = OpenAIEmbeddings(openai_api_key=os.getenv("OPENAI_API_KEY"))
-    instance = FAISS.from_documents(texts, embeddings)
-    faiss.write_index(instance.index, "docs.index")
-    instance.index = None
-    with open("faiss_store.pkl", "wb") as f:
-        pickle.dump(instance, f)
-    return True
+
+    if not texts or not embeddings:
+        return ValueError("No new emails.")
+    instance = None
+
+    try:
+        instance = FAISS.from_documents(texts, embeddings)
+        faiss.write_index(instance.index, "docs.index")
+        instance.index = None
+        with open("faiss_store.pkl", "wb") as f:
+            pickle.dump(instance, f)
+        return True
+    except Exception as e:
+        return e
