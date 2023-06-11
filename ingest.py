@@ -1,20 +1,56 @@
-import faiss
 import os
 import email
 import csv
 import imaplib
 import datetime
 import pickle
+import faiss
 
 from dotenv import load_dotenv
-
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import FAISS
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.document_loaders.csv_loader import CSVLoader
-from langchain.memory import ConversationBufferMemory
 
 load_dotenv()
+
+
+def process_email_message(email_message):
+    csv_data = []
+
+    # Header Details
+    date_tuple = email.utils.parsedate_tz(email_message["Date"])
+    if date_tuple:
+        local_date = datetime.datetime.fromtimestamp(email.utils.mktime_tz(date_tuple))
+        local_message_date = str(local_date.strftime("%a, %d %b %Y %H:%M:%S"))
+    email_from = str(
+        email.header.make_header(email.header.decode_header(email_message["From"]))
+    )
+    email_to = str(
+        email.header.make_header(email.header.decode_header(email_message["To"]))
+    )
+    subject = str(
+        email.header.make_header(email.header.decode_header(email_message["Subject"]))
+    )
+
+    # Body details
+    for part in email_message.walk():
+        if part.get_content_type() == "text/plain":
+            body = part.get_payload(decode=True)
+            try:
+                body_text = body.decode("utf-8")
+            except UnicodeDecodeError:
+                body_text = body.decode("utf-8", errors="replace")
+            data = {"From": email_from, "Subject": subject, "Body": body_text}
+            csv_data.append(data)
+    return csv_data
+
+
+def write_to_csv(csv_data, filename):
+    with open(filename, "w", newline="") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=["From", "Subject", "Body"])
+        writer.writeheader()
+        writer.writerows(csv_data)
 
 
 def email_ingest():
@@ -40,49 +76,19 @@ def email_ingest():
             raw_email_string = raw_email.decode("utf-8", errors="replace")
         email_message = email.message_from_string(raw_email_string)
 
-        # Header Details
-        date_tuple = email.utils.parsedate_tz(email_message["Date"])
-        if date_tuple:
-            local_date = datetime.datetime.fromtimestamp(
-                email.utils.mktime_tz(date_tuple)
-            )
-            local_message_date = "%s" % (
-                str(local_date.strftime("%a, %d %b %Y %H:%M:%S"))
-            )
-        email_from = str(
-            email.header.make_header(email.header.decode_header(email_message["From"]))
-        )
-        email_to = str(
-            email.header.make_header(email.header.decode_header(email_message["To"]))
-        )
-        subject = str(
-            email.header.make_header(
-                email.header.decode_header(email_message["Subject"])
-            )
-        )
+        csv_data.extend(process_email_message(email_message))
 
-        # Body details
-        for part in email_message.walk():
-            if part.get_content_type() == "text/plain":
-                body = part.get_payload(decode=True)
-                try:
-                    body_text = body.decode("utf-8")
-                except UnicodeDecodeError:
-                    body_text = body.decode("utf-8", errors="replace")
-                data = {"From": email_from, "Subject": subject, "Body": body_text}
-                csv_data.append(data)
-            else:
-                continue
-
-    # Write data to CSV file
-    with open("data.csv", "w", newline="") as csvFile:
-        writer = csv.DictWriter(csvFile, fieldnames=["From", "Subject", "Body"])
-        writer.writeheader()
-        writer.writerows(csv_data)
-    # Email Variables:
-    # email_from, subject, body.decode('utf-8)
+    write_to_csv(csv_data, "data.csv")
 
     # Langchain Section Below
+    try:
+        index = faiss.read_index("docs.index")
+    except:
+        pass
+
+    if index is not None:
+        index.reset()  # Reset to clear old data from FAISS index, to avoid confusion between new and old emails.
+
     loader = CSVLoader(file_path="./data.csv")
     data = loader.load()
 
@@ -100,8 +106,8 @@ def email_ingest():
 
     if not texts or not embeddings:
         return ValueError("No new emails.")
-    instance = None
 
+    instance = None
     try:
         instance = FAISS.from_documents(texts, embeddings)
         faiss.write_index(instance.index, "docs.index")
