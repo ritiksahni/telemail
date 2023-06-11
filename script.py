@@ -29,18 +29,18 @@ Audience: 20-year old
 Length: 2 paragraphs
 Note: A user may be having questions about certain emails. Respond to them appropriately without diverting the topic of the email or the conversation.
 
-Be smart enough to separate newsletter content from more important emails.
+Respond with the format between `---`:
+---
+Hey, Ritik. Actionable item-list:
 
-Respond with only the format below:
-
-Hey, [greeting message of your choice].
-
-There are [NUMBER OF NEW EMAILS] new emails in your inbox. Here is a list of actionable items for you:
-
-[ACTIONABLE ITEM LIST ONLY BASED ON THE CONTENT OF THE EMAILS]
+- [Summary of email with subject]
+- [Summary of email with subject]
+- [Summary of email with subject]
 
 Have a good one! [ADD A QUOTE TO MOTIVATE THE USER FOR HIS DAY]
 ---
+
+Make sure to use bullet points for each new unread email. Avoid emails that are spam/marketing/newsletter related. Use whitespace to make texts readable.
 
 
 Context: {context}
