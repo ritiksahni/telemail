@@ -47,6 +47,7 @@ Context: {context}
 
 Human: {question}
 """
+csv_path = "./data.csv"
 prompt = PromptTemplate(template=template, input_variables=["context", "question"])
 llm = ChatOpenAI(temperature=0)
 
@@ -71,7 +72,7 @@ try:
         chain_type_kwargs=chain_type_kwargs,
     )
 except:
-    ingest_response = email_ingest()
+    ingest_response = email_ingest(csv_path)
 
 
 @bot.message_handler(commands=["refresh", "start"])
@@ -80,7 +81,7 @@ def start(message):
         "Hello, Ritik. Let's get working. I have access to your emails"
     )
     msg_if_no_unread_emails_found = "No new unread emails found."
-    ingest_response = email_ingest()
+    ingest_response = email_ingest(csv_path)
     if ingest_response != True:
         bot.reply_to(message, msg_if_no_unread_emails_found)
         print(msg_if_no_unread_emails_found)

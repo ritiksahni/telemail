@@ -53,7 +53,7 @@ def write_to_csv(csv_data, filename):
         writer.writerows(csv_data)
 
 
-def email_ingest():
+def email_ingest(csv_file_name):
     # Email Handler Section Below.
     mail = imaplib.IMAP4_SSL("imap.gmail.com")
     mail.login(os.getenv("EMAIL_ADDRESS"), os.getenv("EMAIL_PASSWORD"))
@@ -81,31 +81,31 @@ def email_ingest():
     write_to_csv(csv_data, "data.csv")
 
     # Langchain Section Below
-    loader = CSVLoader(file_path="./data.csv")
+    loader = CSVLoader(file_path=csv_file_name)
     data = loader.load()
 
     if not data:
-        return ValueError("No new emails.")
+        return "No new emails."
 
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=100,
-        separators=["\n\n", "\n", ".", ";", ",", " ", ""],
-    )
-    texts = text_splitter.split_documents(data)
-
-    embeddings = OpenAIEmbeddings(openai_api_key=os.getenv("OPENAI_API_KEY"))
-
-    if not texts or not embeddings:
-        return ValueError("No new emails.")
-
-    instance = None
     try:
-        instance = FAISS.from_documents(texts, embeddings)
-        faiss.write_index(instance.index, "docs.index")
-        instance.index = None
-        with open("faiss_store.pkl", "wb") as f:
-            pickle.dump(instance, f)
-        return True
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=100,
+            separators=["\n\n", "\n", ".", ";", ",", " ", ""],
+        )
+        texts = text_splitter.split_documents(data)
+
+        embeddings = OpenAIEmbeddings(openai_api_key=os.getenv("OPENAI_API_KEY"))
+
+        instance = None
+        if not texts or not embeddings:
+            return "No new emails."
+        else:
+            instance = FAISS.from_documents(texts, embeddings)
+            faiss.write_index(instance.index, "docs.index")
+            instance.index = None
+            with open("faiss_store.pkl", "wb") as f:
+                pickle.dump(instance, f)
+            return True
     except Exception as e:
-        return e
+        return str(e)
