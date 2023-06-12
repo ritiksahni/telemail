@@ -81,14 +81,6 @@ def email_ingest():
     write_to_csv(csv_data, "data.csv")
 
     # Langchain Section Below
-    try:
-        index = faiss.read_index("docs.index")
-    except:
-        pass
-
-    if index is not None:
-        index.reset()  # Reset to clear old data from FAISS index, to avoid confusion between new and old emails.
-
     loader = CSVLoader(file_path="./data.csv")
     data = loader.load()
 
