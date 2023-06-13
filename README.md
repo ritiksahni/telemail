@@ -8,7 +8,7 @@ Telemail takes the plain-text emails, creates an actionable item list for me and
 
 **Note**: Telemail currently supports Gmail only.
 
-## API Keys
+## Setup
 
 Create an .env file with the following content. _Add your own API keys (obviously)_
 
@@ -30,3 +30,13 @@ Instructions on creating an app password:
 [https://support.google.com/mail/answer/185833?hl=en](https://support.google.com/mail/answer/185833?hl=en)
 
 ---
+
+## Preview
+
+![telemail_demo](https://github.com/ritiksahni/telemail/assets/58897439/be360b5a-6e71-45d1-a63e-43f9a0aed11d)
+
+---
+
+## Contribute
+
+Pull requests are welcome for the enhancement of this project. Raise issues to report bugs, request features.
