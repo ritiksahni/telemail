@@ -55,7 +55,8 @@ load_dotenv()
 token = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(token)
 
-try:
+
+def read_faiss_index():
     index = faiss.read_index("docs.index")
 
     with open("faiss_store.pkl", "rb") as f:
@@ -71,8 +72,7 @@ try:
         memory=memory,
         chain_type_kwargs=chain_type_kwargs,
     )
-except:
-    ingest_response = email_ingest(csv_path)
+    return qa
 
 
 @bot.message_handler(commands=["refresh", "start"])
@@ -91,6 +91,7 @@ def start(message):
 
 @bot.message_handler(func=lambda m: True)
 def all(message):
+    qa = read_faiss_index()
     print(f"Message received: {message.text}")
     bot.reply_to(message, qa.run(message.text))
 
