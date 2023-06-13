@@ -21,6 +21,8 @@ from langchain.chat_models import ChatOpenAI
 
 from ingest import email_ingest
 
+user_chat_ids = []  # List of User IDs for subscribers of the email summaries.
+
 template = """
 Task: Understand the content & context of my emails and create a list of actionable items from the email content. Keep in mind that you're a chat-bot, respond to me as if you're chatting with me on WhatsApp/Telegram.
 Style: Like a regular human personal assistant with access to my emails
@@ -89,6 +91,26 @@ def start(message):
         bot.reply_to(message, msg_if_emails_available)
 
 
+@bot.message_handler(commands=["subscribe"])
+def subscribe(message):
+    chat_id = message.chat.id
+    if chat_id not in user_chat_ids:
+        user_chat_ids.append(chat_id)
+        bot.reply_to(message, "You have subscribed to email summaries.")
+    else:
+        bot.reply_to(message, "You are already subscribed to email summaries.")
+
+
+@bot.message_handler(commands=["unsubscribe"])
+def unsubscribe(message):
+    chat_id = message.chat.id
+    if chat_id in user_chat_ids:
+        user_chat_ids.remove(chat_id)
+        bot.reply_to(message, "You have unsubscribed from email summaries.")
+    else:
+        bot.reply_to(message, "You are not currently subscribed to email summaries.")
+
+
 @bot.message_handler(func=lambda m: True)
 def all(message):
     qa = read_faiss_index()
@@ -99,6 +121,15 @@ def all(message):
 print("Bot Started And Waiting For New Messages\n")
 
 
+def trigger_schedule():
+    email_ingest(csv_path)
+    qa = read_faiss_index()
+    # Send summary message to all users
+    for chat_id in user_chat_ids:
+        summary_message = qa.run("Summarize my emails.")
+        bot.send_message(chat_id=chat_id, text=summary_message)
+
+
 # Scheduler
 def schedule_checker():
     while True:
@@ -107,7 +138,7 @@ def schedule_checker():
 
 
 if __name__ in "__main__":
-    schedule.every().day.at("08:00").do(email_ingest)
+    schedule.every().day.at("08:00").do(trigger_schedule)
     Thread(target=schedule_checker).start()
 
 bot.infinity_polling()
